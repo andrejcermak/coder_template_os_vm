@@ -10,6 +10,7 @@ terraform {
   }
 }
 
+data "coder_workspace" "me" {}
 
 provider "openstack" {
   application_credential_id = data.coder_parameter.application_credential_id.value
@@ -26,12 +27,12 @@ data "openstack_networking_network_v2" "network_default" {
 }
 
 resource "openstack_compute_keypair_v2" "pubkey" {
-  name       = "ood-uploaded-keypair"
+  name       = "${data.coder_workspace.me.name}-keypair"
   public_key = data.coder_parameter.pubkey.value
 }
 
 resource "openstack_networking_secgroup_v2" "ood_security_group" {
-  name        = "ood_security_group"
+  name        = "${data.coder_workspace.me.name}_secgroup"
   description = "My ood machine security group"
 }
 
@@ -42,7 +43,7 @@ resource "openstack_networking_secgroup_rule_v2" "shh_rule" {
   port_range_min    = 22
   port_range_max    = 22
   remote_ip_prefix  = "0.0.0.0/0"
-  security_group_id = "${openstack_networking_secgroup_v2.ood_security_group.id}"
+  security_group_id = openstack_networking_secgroup_v2.ood_security_group.id
 }
 
 data "openstack_networking_network_v2" "external_network" {
@@ -51,6 +52,7 @@ data "openstack_networking_network_v2" "external_network" {
 
 resource "openstack_networking_port_v2" "port" {
   network_id = data.openstack_networking_network_v2.network_default.id
+  security_group_ids = [openstack_networking_secgroup_v2.ood_security_group.id]
 }
 
 resource "openstack_networking_floatingip_v2" "vip_fip" {
@@ -60,7 +62,7 @@ resource "openstack_networking_floatingip_v2" "vip_fip" {
 
 
 resource "openstack_compute_instance_v2" "ubuntu_from_ondemand" {
-	name = "ubuntu_from_ondemand"
+	name = "${data.coder_workspace.me.name}"
 	image_name = "ubuntu-focal-x86_64"
 	flavor_name = "e1.medium"
 	key_pair = openstack_compute_keypair_v2.pubkey.name
@@ -69,7 +71,7 @@ resource "openstack_compute_instance_v2" "ubuntu_from_ondemand" {
     uuid = data.openstack_networking_network_v2.network_default.id
     port = openstack_networking_port_v2.port.id
   } 
-  security_groups = ["${openstack_networking_secgroup_v2.ood_security_group.id}"]
+  security_groups = [openstack_networking_secgroup_v2.ood_security_group.id]
 }
 
 
