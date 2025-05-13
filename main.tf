@@ -10,7 +10,6 @@ terraform {
   }
 }
 
-data "coder_workspace" "me" {}
 
 provider "openstack" {
   application_credential_id = data.coder_parameter.application_credential_id.value
@@ -22,17 +21,19 @@ provider "openstack" {
   allow_reauth = true
 }
 
+data "coder_workspace" "me" {}
+
 data "openstack_networking_network_v2" "network_default" {
   name = "internal-ipv4-general-private"
 }
 
 resource "openstack_compute_keypair_v2" "pubkey" {
-  name       = "${data.coder_workspace.me.name}-keypair"
+  name       = "${lower(data.coder_workspace.me.name)}-keypair"
   public_key = data.coder_parameter.pubkey.value
 }
 
 resource "openstack_networking_secgroup_v2" "ood_security_group" {
-  name        = "${data.coder_workspace.me.name}_secgroup"
+  name        = "${lower(data.coder_workspace.me.name)}-sg"
   description = "My ood machine security group"
 }
 
@@ -62,7 +63,7 @@ resource "openstack_networking_floatingip_v2" "vip_fip" {
 
 
 resource "openstack_compute_instance_v2" "ubuntu_from_ondemand" {
-	name = "${data.coder_workspace.me.name}"
+	name = "${lower(data.coder_workspace.me.name)}-vm"
 	image_name = "ubuntu-focal-x86_64"
 	flavor_name = "e1.medium"
 	key_pair = openstack_compute_keypair_v2.pubkey.name
